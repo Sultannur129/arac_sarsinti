@@ -2,19 +2,20 @@ import 'dart:async' show Future, StreamSubscription;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-// ignore: depend_on_referenced_packages
 import 'package:flutter_sound/flutter_sound.dart';
-// ignore: depend_on_referenced_packages
 import 'package:flutter_sound/public/flutter_sound_recorder.dart';
-// ignore: depend_on_referenced_packages
 import 'package:permission_handler/permission_handler.dart';
-// ignore: depend_on_referenced_packages
-//import 'package:record/record.dat';
-// ignore: depend_on_referenced_packages
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 
-void main() {
+void main() async {
   runApp(const MyApp());
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -67,46 +68,67 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  final TextEditingController brandController = TextEditingController();
+  final TextEditingController modelController = TextEditingController();
+  final Duration _samplingPeriod = const Duration(seconds: 1);
   final recorder = FlutterSoundRecorder();
   bool isRecorderReady = false;
   // List to store accelerometer data
-  List<AccelerometerEvent> _accelerometerValues = [];
-
+  List<UserAccelerometerEvent> _accelerometerValues = [];
+  List<GyroscopeEvent> _gyroscopeValues = [];
   // StreamSubscription for accelerometer events
-  late StreamSubscription<AccelerometerEvent> _accelerometerSubscription;
-  double _gyroX = 0.0;
-  double _gyroY = 0.0;
-  double _gyroZ = 0.0;
+  late StreamSubscription<UserAccelerometerEvent> _accelerometerSubscription;
+  late StreamSubscription<GyroscopeEvent> _gyroscopeSubscription;
+
   @override
   void initState() {
     super.initState();
-    // Subscribe to accelerometer events
-    // ignore: deprecated_member_use
-    _accelerometerSubscription = accelerometerEvents.listen((event) {
-      setState(() {
-        // Update the _accelerometerValues list with the latest event
-        _accelerometerValues = [event];
-      });
-    });
     initRecorder();
-
-    // Listen to gyroscope data stream
-    // ignore: deprecated_member_use
-    gyroscopeEvents.listen((GyroscopeEvent event) {
-      setState(() {
-        _gyroX = event.x;
-        _gyroY = event.y;
-        _gyroZ = event.z;
-      });
-    });
   }
 
   @override
   void dispose() {
     // Cancel the accelerometer event subscription to prevent memory leaks
     _accelerometerSubscription.cancel();
+    _gyroscopeSubscription.cancel();
     recorder.closeRecorder();
+    modelController.dispose();
+    brandController.dispose();
     super.dispose();
+  }
+
+  Future<void> saveAudioAndSensorData(File audioFile,
+      List<UserAccelerometerEvent> accelerometerValues,
+      List<GyroscopeEvent> gyroscopeValues) async{
+
+    try{
+      String vehicleBrand = brandController.text;
+      String vehicleModel = modelController.text;
+      FirebaseFirestore firestore = FirebaseFirestore.instance;
+      firebase_storage.Reference storageRef = firebase_storage.FirebaseStorage.instance.ref().child('audios/${DateTime.now().millisecondsSinceEpoch}');
+      CollectionReference reference = firestore.collection('data');
+      await storageRef.putFile(audioFile);
+      String audioUrl = await storageRef.getDownloadURL();
+
+
+      await reference.add({
+        'vehicleBrand': vehicleBrand,
+        'vehicleModel': vehicleModel,
+        'accelerometerData': _accelerometerValues.map((event) => {
+          'x': event.x,
+          'y': event.y,
+          'z': event.z,
+        }).toList(),
+        'gyroscopeData': _gyroscopeValues.map((event) => {
+          'x': event.x,
+          'y': event.y,
+          'z': event.z,
+        }).toList(),
+        'audioUrl': audioUrl
+      });
+    }catch (error){
+      print(error);
+    }
   }
 
   Future initRecorder() async {
@@ -128,7 +150,17 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future record() async {
     if (!isRecorderReady) return;
-
+    _accelerometerSubscription = userAccelerometerEventStream(samplingPeriod:SensorInterval.normalInterval).listen((UserAccelerometerEvent event) {
+      setState(() {
+        // Update the _accelerometerValues list with the latest event
+        _accelerometerValues.add(event);
+      });
+    });
+    _gyroscopeSubscription = gyroscopeEventStream(samplingPeriod:SensorInterval.normalInterval).listen((GyroscopeEvent event) {
+      setState(() {
+        _gyroscopeValues.add(event);
+      });
+    });
     await recorder.startRecorder(toFile: 'audio');
   }
 
@@ -137,7 +169,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
     final path = await recorder.stopRecorder();
     final audioFile = File(path!);
-
+    _accelerometerSubscription.cancel();
+    _gyroscopeSubscription.cancel();
+    await saveAudioAndSensorData(audioFile, _accelerometerValues, _gyroscopeValues);
     // ignore: avoid_print
     print('Recorded audio: $audioFile');
   }
@@ -190,9 +224,10 @@ class _MyHomePageState extends State<MyHomePage> {
               style: TextStyle(
                   color: Color.fromRGBO(245, 4, 52, 0.996), fontSize: 20),
             ),
-            const SizedBox(
+             SizedBox(
               width: 300,
               child: TextField(
+                controller: brandController,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'Please enter your vehicle brand',
@@ -207,9 +242,10 @@ class _MyHomePageState extends State<MyHomePage> {
               style: TextStyle(
                   color: Color.fromRGBO(245, 4, 52, 0.996), fontSize: 20),
             ),
-            const SizedBox(
+            SizedBox(
               width: 300,
               child: TextField(
+                controller: modelController,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'Please enter your vehicle model',
@@ -261,33 +297,7 @@ class _MyHomePageState extends State<MyHomePage> {
             const SizedBox(
               height: 20,
             ),
-            const Text(
-              'ACCELOREMETER DATA',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Color.fromRGBO(245, 4, 52, 0.996), fontSize: 20),
-            ),
-            const SizedBox(height: 10),
-            if (_accelerometerValues.isNotEmpty)
-              Text(
-                'X: ${_accelerometerValues[0].x.toStringAsFixed(2)}, '
-                'Y: ${_accelerometerValues[0].y.toStringAsFixed(2)}, '
-                'Z: ${_accelerometerValues[0].z.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 16),
-              )
-            else
-              const Text('No data available', style: TextStyle(fontSize: 16)),
-            const SizedBox(height: 10),
-            const Text(
-              'GYROSCOPE DATA',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Color.fromRGBO(245, 4, 52, 0.996), fontSize: 20),
-            ),
-            const SizedBox(height: 10),
-            Text('X: $_gyroX'), // Display gyroscope X data
-            Text('Y: $_gyroY'), // Display gyroscope Y data
-            Text('Z: $_gyroZ'),
+
           ],
         ),
       ),

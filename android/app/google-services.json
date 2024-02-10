@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "774520268567",
+    "project_id": "arac-sarsinti",
+    "storage_bucket": "arac-sarsinti.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:774520268567:android:697100be4023ce364d3952",
+        "android_client_info": {
+          "package_name": "com.example.arac_sarsinti"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBA8Esvw0NK2y_Npl_9_73B8xNejBXAQ3w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

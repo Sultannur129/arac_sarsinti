@@ -30,6 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  firebase_core: ^2.25.4
+  cloud_firestore: ^4.15.4
+  firebase_storage: ^11.6.5
   
   permission_handler: ^8.0.0+2
   flutter_sound: ^9.2.1

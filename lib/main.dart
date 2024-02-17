@@ -1,15 +1,16 @@
-import 'dart:async' show Future, StreamSubscription;
+import 'dart:async' show Future, StreamSubscription, Timer;
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:flutter_sound/public/flutter_sound_recorder.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'package:firebase_core/firebase_core.dart';
+
 import 'firebase_options.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 
 void main() async {
   runApp(const MyApp());
@@ -21,7 +22,7 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
+  // This widget is the root of your.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -68,9 +69,10 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  late Timer timer;
   final TextEditingController brandController = TextEditingController();
   final TextEditingController modelController = TextEditingController();
-  final Duration _samplingPeriod = const Duration(seconds: 1);
+  //Duration samplingPeriod = const Duration(seconds: 1);
   final recorder = FlutterSoundRecorder();
   bool isRecorderReady = false;
   // List to store accelerometer data
@@ -79,6 +81,9 @@ class _MyHomePageState extends State<MyHomePage> {
   // StreamSubscription for accelerometer events
   late StreamSubscription<UserAccelerometerEvent> _accelerometerSubscription;
   late StreamSubscription<GyroscopeEvent> _gyroscopeSubscription;
+  late SensorAccelerometer sensorAccelerometer;
+  // ignore: unnecessary_new
+  List<SensorAccelerometer> accList = [];
 
   @override
   void initState() {
@@ -97,36 +102,42 @@ class _MyHomePageState extends State<MyHomePage> {
     super.dispose();
   }
 
-  Future<void> saveAudioAndSensorData(File audioFile,
+  Future<void> saveAudioAndSensorData(
+      File audioFile,
       List<UserAccelerometerEvent> accelerometerValues,
-      List<GyroscopeEvent> gyroscopeValues) async{
-
-    try{
+      List<GyroscopeEvent> gyroscopeValues) async {
+    try {
       String vehicleBrand = brandController.text;
       String vehicleModel = modelController.text;
       FirebaseFirestore firestore = FirebaseFirestore.instance;
-      firebase_storage.Reference storageRef = firebase_storage.FirebaseStorage.instance.ref().child('audios/${DateTime.now().millisecondsSinceEpoch}');
+      firebase_storage.Reference storageRef = firebase_storage
+          .FirebaseStorage.instance
+          .ref()
+          .child('audios/${DateTime.now().millisecondsSinceEpoch}');
       CollectionReference reference = firestore.collection('data');
       await storageRef.putFile(audioFile);
       String audioUrl = await storageRef.getDownloadURL();
 
-
       await reference.add({
         'vehicleBrand': vehicleBrand,
         'vehicleModel': vehicleModel,
-        'accelerometerData': _accelerometerValues.map((event) => {
-          'x': event.x,
-          'y': event.y,
-          'z': event.z,
-        }).toList(),
-        'gyroscopeData': _gyroscopeValues.map((event) => {
-          'x': event.x,
-          'y': event.y,
-          'z': event.z,
-        }).toList(),
+        'accelerometerData': _accelerometerValues
+            .map((event) => {
+                  'x': event.x,
+                  'y': event.y,
+                  'z': event.z,
+                })
+            .toList(),
+        'gyroscopeData': _gyroscopeValues
+            .map((event) => {
+                  'x': event.x,
+                  'y': event.y,
+                  'z': event.z,
+                })
+            .toList(),
         'audioUrl': audioUrl
       });
-    }catch (error){
+    } catch (error) {
       print(error);
     }
   }
@@ -142,7 +153,7 @@ class _MyHomePageState extends State<MyHomePage> {
     isRecorderReady = true;
 
     recorder.setSubscriptionDuration(
-      const Duration(milliseconds: 500),
+      const Duration(milliseconds: 1000),
     );
 
     // ignore: deprecated_member_use
@@ -150,17 +161,45 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future record() async {
     if (!isRecorderReady) return;
-    _accelerometerSubscription = userAccelerometerEventStream(samplingPeriod:SensorInterval.normalInterval).listen((UserAccelerometerEvent event) {
+    //Duration samplingPeriod = const Duration(minutes: 1);
+    //const Duration SENSOR_DELAY_NORMAL = Duration(microseconds: 1000000);
+    /*timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      userAccelerometerEventStream(
+              samplingPeriod: SensorInterval.normalInterval)
+          .listen((AccelerometerEvent event) {
+        sensorAccelerometer = SensorAccelerometer(event.x, event.y, event.z);
+      } as void Function(UserAccelerometerEvent event)?);
+      accList.add(sensorAccelerometer);
+    });*/
+    _accelerometerSubscription = userAccelerometerEventStream(
+            samplingPeriod: SensorInterval.normalInterval)
+        .listen((UserAccelerometerEvent event) {
       setState(() {
         // Update the _accelerometerValues list with the latest event
         _accelerometerValues.add(event);
       });
     });
-    _gyroscopeSubscription = gyroscopeEventStream(samplingPeriod:SensorInterval.normalInterval).listen((GyroscopeEvent event) {
+
+    _gyroscopeSubscription =
+        gyroscopeEventStream(samplingPeriod: SensorInterval.normalInterval)
+            .listen((GyroscopeEvent event) {
       setState(() {
         _gyroscopeValues.add(event);
       });
     });
+
+    //SensorInterval.normalInterval
+    /*timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      // ignore: deprecated_member_use
+      _accelerometerSubscription = accelerometerEvents.listen((event) {
+        setState(() {
+          // Update the _accelerometerValues list with the latest event
+          _accelerometerValues.add(event as UserAccelerometerEvent);
+        });//SensorInterval.normalInterval
+      }) as StreamSubscription<UserAccelerometerEvent>;
+    });*/
+    //SensorInterval.normalInterval
+
     await recorder.startRecorder(toFile: 'audio');
   }
 
@@ -171,7 +210,8 @@ class _MyHomePageState extends State<MyHomePage> {
     final audioFile = File(path!);
     _accelerometerSubscription.cancel();
     _gyroscopeSubscription.cancel();
-    await saveAudioAndSensorData(audioFile, _accelerometerValues, _gyroscopeValues);
+    await saveAudioAndSensorData(
+        audioFile, _accelerometerValues, _gyroscopeValues);
     // ignore: avoid_print
     print('Recorded audio: $audioFile');
   }
@@ -224,11 +264,11 @@ class _MyHomePageState extends State<MyHomePage> {
               style: TextStyle(
                   color: Color.fromRGBO(245, 4, 52, 0.996), fontSize: 20),
             ),
-             SizedBox(
+            SizedBox(
               width: 300,
               child: TextField(
                 controller: brandController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'Please enter your vehicle brand',
                 ),
@@ -246,7 +286,7 @@ class _MyHomePageState extends State<MyHomePage> {
               width: 300,
               child: TextField(
                 controller: modelController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'Please enter your vehicle model',
                 ),
@@ -297,11 +337,15 @@ class _MyHomePageState extends State<MyHomePage> {
             const SizedBox(
               height: 20,
             ),
-
           ],
         ),
       ),
       // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
+}
+
+class SensorAccelerometer {
+  double x, y, z;
+  SensorAccelerometer(this.x, this.y, this.z);
 }

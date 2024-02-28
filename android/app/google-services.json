@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "193747249493",
+    "firebase_url": "https://aracsarsinti-cb428-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "aracsarsinti-cb428",
+    "storage_bucket": "aracsarsinti-cb428.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:193747249493:android:42e07f9a20aedc6444e7dc",
+        "android_client_info": {
+          "package_name": "com.example.arac_sarsinti"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBc1bqb1gn9UtsTFXS9WOBAmA8C_NlZfVM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -2,6 +2,10 @@
 
 A new Flutter project.
 
+![Uygulama arayüzü](https://github.com/user-attachments/assets/93d4cb60-e7c1-454d-bbcd-4ed7bcc25e1c)
+
+
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
